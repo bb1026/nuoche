@@ -1,5 +1,3 @@
-const PHONE = "18650258338"; // 只留电话，其他全走环境变量
-
 addEventListener("fetch", (event) => {
   event.respondWith(handleRequest(event.request));
 });
@@ -7,23 +5,19 @@ addEventListener("fetch", (event) => {
 async function handleRequest(request) {
   const url = new URL(request.url);
 
-  // 页面
   if (request.method === "GET") {
     return new Response(getHtml(), {
       headers: { "Content-Type": "text/html;charset=utf-8" },
     });
   }
 
-  // 发送接口（后端处理，不暴露任何密钥）
   if (request.method === "POST" && url.pathname === "/api/send") {
     try {
       const { carNo, userCode, code } = await request.json();
-
       if (code !== userCode) {
         return Response.json({ success: false, msg: "验证码错误" });
       }
 
-      // 从 Cloudflare 环境变量读取
       const WX_TOKEN = WX_TOKEN_ENV;
       const WX_UID = WX_UID_ENV;
 
@@ -33,8 +27,8 @@ async function handleRequest(request) {
         body: JSON.stringify({
           appToken: WX_TOKEN,
           content: `车牌号 ${carNo} 车主，请挪车`,
-          uids: [WX_UID],
-        }),
+          uids: [WX_UID]
+        })
       });
 
       const data = await res.json();
@@ -42,6 +36,13 @@ async function handleRequest(request) {
     } catch (e) {
       return Response.json({ success: false, msg: "发送失败" });
     }
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/call") {
+    return Response.json({
+      success: true,
+      phone: PHONE_ENV
+    });
   }
 
   return new Response("Not found", { status: 404 });
@@ -81,10 +82,12 @@ background:url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMC
     <div class="qr-box"></div>
     <div class="title">临时挪车通知</div>
     <div class="subtitle">扫码联系车主，保护隐私</div>
+
     <div class="form-item">
       <label>车牌号</label>
       <input type="text" id="carNo" placeholder="如：京A12345">
     </div>
+
     <div class="form-item">
       <label>验证码</label>
       <div class="code-row">
@@ -92,13 +95,16 @@ background:url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMC
         <canvas id="codeCanvas"></canvas>
       </div>
     </div>
+
     <button class="btn btn-call" onclick="call()">一键拨打车主电话</button>
     <button class="btn btn-notify" onclick="sendNotify()">微信通知车主挪车</button>
-    <div class="tip">仅用于挪车</div>
+    <div class="tip">仅用于挪车，隐私保护</div>
   </div>
 </div>
+
 <script>
 let validateCode = "";
+
 function genCode(){
   const c = "0123456789ABCDEFGHJKLMNPQRSTWXYZ";
   validateCode = Array(4).fill().map(()=>c[Math.floor(Math.random()*c.length)]).join('');
@@ -109,12 +115,27 @@ function genCode(){
   x.textAlign="center";x.textBaseline="middle";
   x.fillText(validateCode,60,24);
 }
-function call(){location.href='tel:${PHONE}'}
+
+async function call(){
+  try {
+    const res = await fetch('/api/call', { method:'POST' });
+    const data = await res.json();
+    if(data.success){
+      location.href = 'tel:' + data.phone;
+    } else {
+      alert('获取号码失败，请使用微信通知');
+    }
+  } catch(e){
+    alert('获取号码失败');
+  }
+}
+
 async function sendNotify(){
   const carNo = document.getElementById('carNo').value.trim();
   const userCode = document.getElementById('codeInput').value.trim().toUpperCase();
   if(!carNo){alert('请输入车牌号');return}
   if(!userCode){alert('请输入验证码');return}
+
   try{
     const r = await fetch('/api/send',{
       method:'POST',
@@ -122,10 +143,13 @@ async function sendNotify(){
       body:JSON.stringify({carNo, userCode, code:validateCode})
     });
     const d=await r.json();
-    alert(d.success ? '发送成功！已通知车主' : '发送失败：'+d.msg);
-  }catch(e){alert('发送失败，请电话联系')}
+    alert(d.success ? '发送成功！已通知车主' : '发送失败：'+(d.msg||''));
+  }catch(e){
+    alert('发送失败，请电话联系');
+  }
   genCode();
 }
+
 window.onload=()=>{genCode();document.getElementById('codeCanvas').onclick=genCode}
 </script>
 </body>
