@@ -15,49 +15,57 @@ async function handleRequest(request, env) {
   }
 
   // 微信通知
-if (request.method === "POST" && url.pathname === "/api/send") {
-  try {
-    const { carNo, userCode, code } = await request.json();
+  if (request.method === "POST" && url.pathname === "/api/send") {
+    try {
+      const { carNo, userCode, code } = await request.json();
 
-    if (code !== userCode) {
-      return Response.json({ success: false, msg: "验证码错误" });
+      if (code !== userCode) {
+        return Response.json({ success: false, msg: "验证码错误" });
+      }
+
+      const WX_TOKEN = env.WX_TOKEN_ENV;
+      const WX_UID = env.WX_UID_ENV;
+
+      if (!WX_TOKEN || !WX_UID) {
+        return Response.json({
+          success: false,
+          msg: "环境变量未读取",
+          token: WX_TOKEN || null,
+          uid: WX_UID || null
+        });
+      }
+
+      const res = await fetch("https://wxpusher.zjiecode.com/api/send/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appToken: WX_TOKEN,
+          content: `车牌号 ${carNo} 车主，请挪车`,
+          contentType: 1,
+          uids: [WX_UID]
+        })
+      });
+
+      const data = await res.json();
+
+      return Response.json({
+        success: data.code === 1000,
+        wxResponse: data
+      });
+
+    } catch (e) {
+      return Response.json({
+        success: false,
+        error: e.toString()
+      });
     }
-
-    const WX_TOKEN = env.WX_TOKEN_ENV;
-    const WX_UID = env.WX_UID_ENV;
-
-    const res = await fetch("https://wxpusher.zjiecode.com/api/send/message", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        appToken: WX_TOKEN,
-        content: `车牌号 ${carNo} 车主，请挪车`,
-        contentType: 1,
-        uids: [WX_UID]
-      })
-    });
-
-    const data = await res.json();
-
-    // 🔥 直接把微信接口真实返回结果返回给前端
-    return Response.json({
-      wxResponse: data,
-      token: WX_TOKEN ? "已读取" : "未读取",
-      uid: WX_UID ? "已读取" : "未读取"
-    });
-
-  } catch (e) {
-    return Response.json({
-      error: e.toString()
-    });
   }
-}
 
   // 电话接口
   if (request.method === "POST" && url.pathname === "/api/call") {
     return Response.json({
       success: true,
-      phone: env.PHONE_ENV
+      phone: env.PHONE_ENV || null
     });
   }
 
@@ -131,7 +139,7 @@ function genCode(){
 async function call(){
   const res = await fetch('/api/call', { method:'POST' });
   const data = await res.json();
-  if(data.success){
+  if(data.success && data.phone){
     location.href = 'tel:' + data.phone;
   } else {
     alert('获取号码失败');
@@ -149,8 +157,15 @@ async function sendNotify(){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({carNo, userCode, code:validateCode})
   });
-  const d=await r.json();
-  alert(d.success ? '发送成功！已通知车主' : '发送失败：'+(d.msg||''));
+
+  const d = await r.json();
+
+  if(d.success){
+    alert("✅ 发送成功！");
+  }else{
+    alert("❌ 发送失败：\n" + JSON.stringify(d,null,2));
+  }
+
   genCode();
 }
 
