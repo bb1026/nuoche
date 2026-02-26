@@ -15,9 +15,14 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          wranglerVersion: "3"
+          # 如果要指定版本，写成下面这样的合法 semver
+          wranglerVersion: "3.x"
           command: deploy
           secrets: |
             PHONE_ENV
             WX_TOKEN_ENV
             WX_UID_ENV
+        env:
+          PHONE_ENV: ${{ secrets.PHONE_ENV }}
+          WX_TOKEN_ENV: ${{ secrets.WX_TOKEN_ENV }}
+          WX_UID_ENV: ${{ secrets.WX_UID_ENV }}
