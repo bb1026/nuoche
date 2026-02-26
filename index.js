@@ -1,4 +1,4 @@
-const PHONE = "13800138000"; // 只留电话，其他全走环境变量
+const PHONE = "18650258338"; // 只留电话，其他全走环境变量
 
 addEventListener("fetch", (event) => {
   event.respondWith(handleRequest(event.request));
