@@ -28,7 +28,7 @@ async function handleRequest(request, env) {
         return Response.json({ success: false, msg: "未配置 WECOM_WEBHOOK" });
       }
 
-      // 默认内容
+      // 默认内容（这里一定带车牌）
       const defaultMsg = "🚗 挪车通知\n车牌号：" + carNo + "\n请尽快挪车，感谢配合";
       const sendContent = content?.trim()
         ? `🚗 挪车通知\n车牌号：${carNo}\n留言：${content}`
