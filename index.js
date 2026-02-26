@@ -14,49 +14,48 @@ async function handleRequest(request, env) {
     });
   }
 
-  // 微信通知（企业微信Wecom酱，无次数限制）
+  // 企业微信机器人推送（无限制、免费、不实名）
   if (request.method === "POST" && url.pathname === "/api/send") {
     try {
       const { carNo, userCode, code } = await request.json();
-      if (code !== userCode) return Response.json({ success: false, msg: "验证码错误" });
 
-      const { CORP_ID, AGENT_ID, AGENT_SECRET, TO_USER } = env;
-      if (!CORP_ID || !AGENT_ID || !AGENT_SECRET || !TO_USER) {
-        return Response.json({ success: false, msg: "环境变量不全" });
+      if (code !== userCode) {
+        return Response.json({ success: false, msg: "验证码错误" });
       }
 
-      // 1. 获取access_token
-      const tokenRes = await fetch(`https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${CORP_ID}&corpsecret=${AGENT_SECRET}`);
-      const tokenData = await tokenRes.json();
-      if (tokenData.errcode !== 0) return Response.json({ success: false, msg: "获取token失败", data: tokenData });
-      const accessToken = tokenData.access_token;
+      const WEBHOOK = env.WECOM_WEBHOOK;
+      if (!WEBHOOK) {
+        return Response.json({ success: false, msg: "未配置 WECOM_WEBHOOK" });
+      }
 
-      // 2. 发送挪车通知
-      const sendRes = await fetch(`https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=${accessToken}`, {
+      const res = await fetch(WEBHOOK, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          touser: TO_USER,
           msgtype: "text",
-          agentid: AGENT_ID,
-          text: { content: `🚗 挪车通知\n车牌号：${carNo}\n请尽快挪车` }
+          text: {
+            content: "🚗 挪车通知\n车牌号：" + carNo + "\n请尽快挪车"
+          }
         })
       });
-      const sendData = await sendRes.json();
+
+      const data = await res.json();
 
       return Response.json({
-        success: sendData.errcode === 0,
-        resp: sendData
+        success: data.errcode === 0,
+        msg: data.errmsg
       });
-
     } catch (e) {
       return Response.json({ success: false, error: e.toString() });
     }
   }
 
-  // 电话接口
+  // 电话
   if (request.method === "POST" && url.pathname === "/api/call") {
-    return Response.json({ success: true, phone: env.PHONE_ENV || null });
+    return Response.json({
+      success: true,
+      phone: env.PHONE_ENV || null
+    });
   }
 
   return new Response("Not found", { status: 404 });
@@ -137,8 +136,8 @@ async function sendNotify() {
     body:JSON.stringify({carNo,userCode,code:validateCode})
   });
   const d=await r.json();
-  if(d.success) alert("✅ 微信通知发送成功！");
-  else alert("❌ 发送失败："+(d.msg||JSON.stringify(d)));
+  if(d.success) alert("✅ 发送成功！");
+  else alert("❌ 失败："+d.msg);
   genCode();
 }
 window.onload=()=>{genCode();document.getElementById('codeCanvas').onclick=genCode;}
