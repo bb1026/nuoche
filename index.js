@@ -14,59 +14,49 @@ async function handleRequest(request, env) {
     });
   }
 
-  // 微信通知
+  // 微信通知（企业微信Wecom酱，无次数限制）
   if (request.method === "POST" && url.pathname === "/api/send") {
     try {
       const { carNo, userCode, code } = await request.json();
+      if (code !== userCode) return Response.json({ success: false, msg: "验证码错误" });
 
-      if (code !== userCode) {
-        return Response.json({ success: false, msg: "验证码错误" });
+      const { CORP_ID, AGENT_ID, AGENT_SECRET, TO_USER } = env;
+      if (!CORP_ID || !AGENT_ID || !AGENT_SECRET || !TO_USER) {
+        return Response.json({ success: false, msg: "环境变量不全" });
       }
 
-      const WX_TOKEN = env.WX_TOKEN_ENV;
-      const WX_UID = env.WX_UID_ENV;
+      // 1. 获取access_token
+      const tokenRes = await fetch(`https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${CORP_ID}&corpsecret=${AGENT_SECRET}`);
+      const tokenData = await tokenRes.json();
+      if (tokenData.errcode !== 0) return Response.json({ success: false, msg: "获取token失败", data: tokenData });
+      const accessToken = tokenData.access_token;
 
-      if (!WX_TOKEN || !WX_UID) {
-        return Response.json({
-          success: false,
-          msg: "环境变量未读取",
-          token: WX_TOKEN || null,
-          uid: WX_UID || null
-        });
-      }
-
-      const res = await fetch("https://wxpusher.zjiecode.com/api/send/message", {
+      // 2. 发送挪车通知
+      const sendRes = await fetch(`https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=${accessToken}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          appToken: WX_TOKEN,
-          content: `车牌号 ${carNo} 车主，请挪车`,
-          contentType: 1,
-          uids: [WX_UID]
+          touser: TO_USER,
+          msgtype: "text",
+          agentid: AGENT_ID,
+          text: { content: `🚗 挪车通知\n车牌号：${carNo}\n请尽快挪车` }
         })
       });
-
-      const data = await res.json();
+      const sendData = await sendRes.json();
 
       return Response.json({
-        success: data.code === 1000,
-        wxResponse: data
+        success: sendData.errcode === 0,
+        resp: sendData
       });
 
     } catch (e) {
-      return Response.json({
-        success: false,
-        error: e.toString()
-      });
+      return Response.json({ success: false, error: e.toString() });
     }
   }
 
   // 电话接口
   if (request.method === "POST" && url.pathname === "/api/call") {
-    return Response.json({
-      success: true,
-      phone: env.PHONE_ENV || null
-    });
+    return Response.json({ success: true, phone: env.PHONE_ENV || null });
   }
 
   return new Response("Not found", { status: 404 });
@@ -102,12 +92,10 @@ body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFon
   <div class="card">
     <div class="title">临时挪车通知</div>
     <div class="subtitle">扫码联系车主，保护隐私</div>
-
     <div class="form-item">
       <label>车牌号</label>
       <input type="text" id="carNo" placeholder="如：京A12345">
     </div>
-
     <div class="form-item">
       <label>验证码</label>
       <div class="code-row">
@@ -115,61 +103,45 @@ body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFon
         <canvas id="codeCanvas"></canvas>
       </div>
     </div>
-
     <button class="btn btn-call" onclick="call()">一键拨打车主电话</button>
     <button class="btn btn-notify" onclick="sendNotify()">微信通知车主挪车</button>
     <div class="tip">仅用于挪车，隐私保护</div>
   </div>
 </div>
-
 <script>
 let validateCode = "";
-
-function genCode(){
-  const c = "0123456789ABCDEFGHJKLMNPQRSTWXYZ";
-  validateCode = Array(4).fill().map(()=>c[Math.floor(Math.random()*c.length)]).join('');
-  const e = document.getElementById("codeCanvas"),x = e.getContext("2d");
-  e.width=240;e.height=96;x.scale(2,2);
-  x.fillStyle="#f5f7fa";x.fillRect(0,0,120,48);
-  x.font="bold 24px Arial";x.fillStyle="#007AFF";
-  x.textAlign="center";x.textBaseline="middle";
-  x.fillText(validateCode,60,24);
+function genCode() {
+  const canvas = document.getElementById("codeCanvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = 120; canvas.height = 48;
+  const chars = "0123456789ABCDEFGHJKLMNPQRSTWXYZ";
+  validateCode = Array(4).fill(0).map(()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+  ctx.fillStyle="#f5f7fa"; ctx.fillRect(0,0,120,48);
+  ctx.font="bold 26px Arial"; ctx.fillStyle="#007AFF";
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(validateCode,60,24);
 }
-
-async function call(){
-  const res = await fetch('/api/call', { method:'POST' });
-  const data = await res.json();
-  if(data.success && data.phone){
-    location.href = 'tel:' + data.phone;
-  } else {
-    alert('获取号码失败');
-  }
+async function call() {
+  const res=await fetch('/api/call',{method:'POST'});
+  const data=await res.json();
+  if(data.success&&data.phone) location.href='tel:'+data.phone;
+  else alert('获取号码失败');
 }
-
-async function sendNotify(){
-  const carNo = document.getElementById('carNo').value.trim();
-  const userCode = document.getElementById('codeInput').value.trim().toUpperCase();
-  if(!carNo){alert('请输入车牌号');return}
-  if(!userCode){alert('请输入验证码');return}
-
-  const r = await fetch('/api/send',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({carNo, userCode, code:validateCode})
+async function sendNotify() {
+  const carNo=document.getElementById('carNo').value.trim();
+  const userCode=document.getElementById('codeInput').value.trim().toUpperCase();
+  if(!carNo){alert('请输入车牌号');return;}
+  if(!userCode){alert('请输入验证码');return;}
+  const r=await fetch('/api/send',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({carNo,userCode,code:validateCode})
   });
-
-  const d = await r.json();
-
-  if(d.success){
-    alert("✅ 发送成功！");
-  }else{
-    alert("❌ 发送失败：\n" + JSON.stringify(d,null,2));
-  }
-
+  const d=await r.json();
+  if(d.success) alert("✅ 微信通知发送成功！");
+  else alert("❌ 发送失败："+(d.msg||JSON.stringify(d)));
   genCode();
 }
-
-window.onload=()=>{genCode();document.getElementById('codeCanvas').onclick=genCode}
+window.onload=()=>{genCode();document.getElementById('codeCanvas').onclick=genCode;}
 </script>
 </body>
 </html>`;
