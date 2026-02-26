@@ -1,25 +1,34 @@
-addEventListener("fetch", (event) => {
-  event.respondWith(handleRequest(event.request));
-});
+export default {
+  async fetch(request, env) {
+    return handleRequest(request, env);
+  }
+};
 
-async function handleRequest(request) {
+async function handleRequest(request, env) {
   const url = new URL(request.url);
 
+  // 首页
   if (request.method === "GET") {
     return new Response(getHtml(), {
       headers: { "Content-Type": "text/html;charset=utf-8" },
     });
   }
 
+  // 微信通知
   if (request.method === "POST" && url.pathname === "/api/send") {
     try {
       const { carNo, userCode, code } = await request.json();
+
       if (code !== userCode) {
         return Response.json({ success: false, msg: "验证码错误" });
       }
 
-      const WX_TOKEN = WX_TOKEN_ENV;
-      const WX_UID = WX_UID_ENV;
+      const WX_TOKEN = env.WX_TOKEN_ENV;
+      const WX_UID = env.WX_UID_ENV;
+
+      if (!WX_TOKEN || !WX_UID) {
+        return Response.json({ success: false, msg: "环境变量未配置" });
+      }
 
       const res = await fetch("https://wxpusher.zjiecode.com/api/send/message", {
         method: "POST",
@@ -27,21 +36,24 @@ async function handleRequest(request) {
         body: JSON.stringify({
           appToken: WX_TOKEN,
           content: `车牌号 ${carNo} 车主，请挪车`,
+          contentType: 1,
           uids: [WX_UID]
         })
       });
 
       const data = await res.json();
       return Response.json(data);
+
     } catch (e) {
       return Response.json({ success: false, msg: "发送失败" });
     }
   }
 
+  // 电话接口
   if (request.method === "POST" && url.pathname === "/api/call") {
     return Response.json({
       success: true,
-      phone: PHONE_ENV
+      phone: env.PHONE_ENV
     });
   }
 
@@ -49,8 +61,7 @@ async function handleRequest(request) {
 }
 
 function getHtml() {
-  return `
-<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
@@ -61,8 +72,6 @@ function getHtml() {
 body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Roboto,sans-serif}
 .container{max-width:380px;margin:50px auto}
 .card{background:#fff;border-radius:20px;box-shadow:0 8px 30px rgba(0,0,0,0.08);padding:32px 24px}
-.qr-box{width:120px;height:120px;margin:0 auto 20px;background:#f8f9fa;border-radius:12px;
-background:url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeD0iMTAiIHk9IjEwIiBmaWxsPSJ3aGl0ZSIvPjxyZWN0IHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgeD0iMjAiIHk9IjIwIiBmaWxsOiMzMzMiLz48cmVjdCB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHg9IjgwIiB5PSIyMCIgZmlsbD0iIzMzMyIvPjxyZWN0IHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgeD0iMjAiIHk9IjgwIiBmaWxsOiMzMzMiLz48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHg9IjQwIiB5PSI0MCIgZmlsbD0iIzMzMyIvPjwvc3ZnPg==') center/100% no-repeat}
 .title{text-align:center;font-size:22px;font-weight:700;color:#222;margin-bottom:6px}
 .subtitle{text-align:center;font-size:14px;color:#666;margin-bottom:28px}
 .form-item{margin-bottom:16px}
@@ -79,7 +88,6 @@ background:url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMC
 <body>
 <div class="container">
   <div class="card">
-    <div class="qr-box"></div>
     <div class="title">临时挪车通知</div>
     <div class="subtitle">扫码联系车主，保护隐私</div>
 
@@ -117,15 +125,11 @@ function genCode(){
 }
 
 async function call(){
-  try {
-    const res = await fetch('/api/call', { method:'POST' });
-    const data = await res.json();
-    if(data.success){
-      location.href = 'tel:' + data.phone;
-    } else {
-      alert('获取号码失败，请使用微信通知');
-    }
-  } catch(e){
+  const res = await fetch('/api/call', { method:'POST' });
+  const data = await res.json();
+  if(data.success){
+    location.href = 'tel:' + data.phone;
+  } else {
     alert('获取号码失败');
   }
 }
@@ -136,23 +140,18 @@ async function sendNotify(){
   if(!carNo){alert('请输入车牌号');return}
   if(!userCode){alert('请输入验证码');return}
 
-  try{
-    const r = await fetch('/api/send',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({carNo, userCode, code:validateCode})
-    });
-    const d=await r.json();
-    alert(d.success ? '发送成功！已通知车主' : '发送失败：'+(d.msg||''));
-  }catch(e){
-    alert('发送失败，请电话联系');
-  }
+  const r = await fetch('/api/send',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({carNo, userCode, code:validateCode})
+  });
+  const d=await r.json();
+  alert(d.success ? '发送成功！已通知车主' : '发送失败：'+(d.msg||''));
   genCode();
 }
 
 window.onload=()=>{genCode();document.getElementById('codeCanvas').onclick=genCode}
 </script>
 </body>
-</html>
-  `;
+</html>`;
 }
