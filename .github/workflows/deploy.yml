@@ -18,9 +18,7 @@ jobs:
           command: deploy
           secrets: |
             PHONE_ENV
-            WX_TOKEN_ENV
-            WX_UID_ENV
+            WECOM_WEBHOOK
         env:
           PHONE_ENV: ${{ secrets.PHONE }}
-          WX_TOKEN_ENV: ${{ secrets.WX_TOKEN }}
-          WX_UID_ENV: ${{ secrets.WX_UID }}
+          WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
