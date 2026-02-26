@@ -1,3 +1,8 @@
 name = "move-car"
 main = "index.js"
-compatibility_date = "2026-02-26"
+compatibility_date = "2026-01-01"
+account_id = "4796a78c1804791b739f97bb336bab79"
+
+routes = [
+  { pattern = "nuoche.0515364.xyz/*", zone_id = "df09b3a563bde936907cc7c4a710f942" }
+]
