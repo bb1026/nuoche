@@ -26,9 +26,9 @@ async function handleRequest(request, env) {
         return Response.json({ success: false, msg: "未配置 WECOM_WEBHOOK" });
       }
 
-      const defaultMsg = "📞 便捷联络\n车牌号：" + carNo + "\n请及时沟通，感谢配合";
+      const defaultMsg = "🚗 便捷联络\n车牌号：" + carNo + "\n请及时沟通，感谢配合";
       const sendContent = content?.trim()
-        ? `📞 便捷联络\n车牌号：${carNo}\n留言：${content}`
+        ? `🚗 便捷联络\n车牌号：${carNo}\n留言：${content}`
         : defaultMsg;
 
       const res = await fetch(WEBHOOK, {
@@ -115,20 +115,78 @@ body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFon
 
 .container{max-width:380px;margin:50px auto}
 .card{background:#fff;border-radius:20px;box-shadow:0 8px 30px rgba(0,0,0,0.08);padding:32px 24px}
-.title{text-align:center;font-size:22px;font-weight:700;color:#222;margin-bottom:6px}
-.subtitle{text-align:center;font-size:14px;color:#666;margin-bottom:28px}
-.form-item{margin-bottom:16px}
-.form-item label{display:block;font-size:14px;color:#333;margin-bottom:6px;font-weight:500}
-.form-item input,.form-item select{
-  width:100%;height:48px;border:1px solid #e1e4e8;
-  border-radius:12px;padding:0 16px;font-size:16px;outline:none
+
+.title{
+  text-align:center;
+  font-size:22px;
+  font-weight:700;
+  color:#222;
+  margin-bottom:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
 }
+.subtitle{
+  text-align:center;
+  font-size:14px;
+  color:#666;
+  margin-bottom:28px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+
+.form-item{margin-bottom:16px}
+.form-item label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  color:#333;
+  margin-bottom:6px;
+  font-weight:500
+}
+.form-item input,.form-item select{
+  width:100%;
+  height:48px;
+  border:1px solid #e1e4e8;
+  border-radius:12px;
+  padding:0 16px;
+  font-size:16px;
+  outline:none
+}
+
 .code-row{display:flex;gap:12px}
 #codeCanvas{width:120px;height:48px;border-radius:12px;background:#f5f7fa;cursor:pointer}
-.btn{width:100%;height:52px;border-radius:14px;font-size:16px;font-weight:600;border:none;margin-bottom:12px}
+
+.btn{
+  width:100%;
+  height:52px;
+  border-radius:14px;
+  font-size:16px;
+  font-weight:600;
+  border:none;
+  margin-bottom:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
 .btn-call{background:#007AFF;color:#fff}
 .btn-notify{background:#34C759;color:#fff}
-.tip{text-align:center;font-size:12px;color:#999;margin-top:16px}
+
+.tip{
+  text-align:center;
+  font-size:12px;
+  color:#999;
+  margin-top:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
 </style>
 </head>
 <body>
@@ -140,32 +198,49 @@ body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFon
 
 <div class="container">
   <div class="card">
-    <div class="title">便捷联络</div>
-    <div class="subtitle">扫码联系车主，保护隐私</div>
+    <div class="title">
+      <i class="fa-solid fa-address-card"></i>便捷联络
+    </div>
+    <div class="subtitle">
+      <i class="fa-solid fa-shield-halved"></i>扫码联系车主，保护隐私
+    </div>
 
     <div class="form-item">
-      <label>车牌号</label>
+      <label>
+        <i class="fa-solid fa-car"></i>车牌号
+      </label>
       <select id="carNo">
         <option value="闽A12345">测试12345</option>
       </select>
     </div>
 
     <div class="form-item">
-      <label>留言（可选）</label>
-      <input type="text" id="content" placeholder="挪车通知！谢谢！">
+      <label>
+        <i class="fa-solid fa-comment"></i>留言（可选）
+      </label>
+      <input type="text" id="content" placeholder="请及时挪车，谢谢！">
     </div>
 
     <div class="form-item">
-      <label>验证码</label>
+      <label>
+        <i class="fa-solid fa-lock"></i>验证码
+      </label>
       <div class="code-row">
         <input type="text" id="codeInput" maxlength="4">
         <canvas id="codeCanvas"></canvas>
       </div>
     </div>
 
-    <button class="btn btn-call" onclick="call()">一键拨打车主电话</button>
-    <button class="btn btn-notify" onclick="sendNotify()">一键微信通知车主</button>
-    <div class="tip">仅用于联络，隐私保护</div>
+    <button class="btn btn-call" onclick="call()">
+      <i class="fa-solid fa-phone"></i>一键拨打车主电话
+    </button>
+    <button class="btn btn-notify" onclick="sendNotify()">
+      <i class="fa-solid fa-paper-plane"></i>一键微信通知车主
+    </button>
+
+    <div class="tip">
+      <i class="fa-solid fa-shield-halved"></i>仅用于联络，隐私保护
+    </div>
   </div>
 </div>
 
