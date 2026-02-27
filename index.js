@@ -68,24 +68,49 @@ function getHtml() {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>便捷联络</title>
+<link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Roboto,sans-serif}
 
-/* 顶部通知条 */
-#notification{
-  position:fixed;top:0;left:0;right:0;height:44px;
-  display:flex;align-items:center;justify:center;
-  color:#fff;font-size:15px;font-weight:500;
-  transform:translateY(-100%);transition:transform 0.3s ease;
-  z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.1);
+/* 顶部通知 */
+#notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translate(-50%, -120%);
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  max-width: 320px;
+  width: 90%;
+  border: 1px solid #eee;
 }
-#notification.show{transform:translateY(0)}
-#notification.success{background:#20C997}
-#notification.error{background:#DC3545}
-#notification .progress{
-  position:absolute;bottom:0;left:0;height:3px;
-  background:rgba(255,255,255,0.6);width:0;
+#notification.show {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+#notification i {
+  font-size: 28px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+#notification .text {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+#notification.success i {
+  color: #20C997;
+}
+#notification.error i {
+  color: #DC3545;
 }
 
 .container{max-width:380px;margin:50px auto}
@@ -109,8 +134,8 @@ body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFon
 <body>
 
 <div id="notification">
-  <span id="notifyText"></span>
-  <div class="progress" id="notifyProgress"></div>
+  <i id="notifyIcon"></i>
+  <div id="notifyText" class="text"></div>
 </div>
 
 <div class="container">
@@ -119,15 +144,15 @@ body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFon
     <div class="subtitle">扫码联系车主，保护隐私</div>
 
     <div class="form-item">
-      <label>选择车牌号</label>
+      <label>车牌号</label>
       <select id="carNo">
-        <option value="闽A88888">闽A88888</option>
+        <option value="闽A12345">测试12345</option>
       </select>
     </div>
 
     <div class="form-item">
       <label>留言（可选）</label>
-      <input type="text" id="content" placeholder="请及时沟通，谢谢">
+      <input type="text" id="content" placeholder="挪车通知！谢谢！">
     </div>
 
     <div class="form-item">
@@ -139,7 +164,7 @@ body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFon
     </div>
 
     <button class="btn btn-call" onclick="call()">一键拨打车主电话</button>
-    <button class="btn btn-notify" onclick="sendNotify()">微信通知车主</button>
+    <button class="btn btn-notify" onclick="sendNotify()">一键微信通知车主</button>
     <div class="tip">仅用于联络，隐私保护</div>
   </div>
 </div>
@@ -150,18 +175,20 @@ let validateCode = "";
 // 顶部通知
 function showNotify(type, text) {
   const el = document.getElementById('notification');
+  const icon = document.getElementById('notifyIcon');
   const textEl = document.getElementById('notifyText');
-  const prog = document.getElementById('notifyProgress');
-  
-  el.classList.remove('success','error');
+
+  el.classList.remove('success', 'error');
   el.classList.add(type);
   textEl.textContent = text;
+
+  if (type === 'success') {
+    icon.className = 'fa-solid fa-circle-check';
+  } else {
+    icon.className = 'fa-solid fa-circle-xmark';
+  }
+
   el.classList.add('show');
-  prog.style.width = '0';
-  prog.animate([{ width: '0%' }, { width: '100%' }], {
-    duration: 3000,
-    easing: 'linear'
-  });
   setTimeout(() => {
     el.classList.remove('show');
   }, 3000);
@@ -206,9 +233,9 @@ async function sendNotify() {
   const d=await r.json();
   
   if(d.success) {
-    showNotify('success','✅ 发送成功');
+    showNotify('success','发送成功');
   } else {
-    showNotify('error','❌ 失败：'+d.msg);
+    showNotify('error','失败：'+d.msg);
   }
   genCode();
 }
