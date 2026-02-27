@@ -7,14 +7,12 @@ export default {
 async function handleRequest(request, env) {
   const url = new URL(request.url);
 
-  // 首页
   if (request.method === "GET") {
     return new Response(getHtml(), {
       headers: { "Content-Type": "text/html;charset=utf-8" },
     });
   }
 
-  // 企业微信机器人推送（无限制、免费、不实名）
   if (request.method === "POST" && url.pathname === "/api/send") {
     try {
       const { carNo, userCode, code, content } = await request.json();
@@ -28,10 +26,9 @@ async function handleRequest(request, env) {
         return Response.json({ success: false, msg: "未配置 WECOM_WEBHOOK" });
       }
 
-      // 默认内容（这里一定带车牌）
-      const defaultMsg = "🚗 挪车通知\n车牌号：" + carNo + "\n请尽快挪车，感谢配合";
+      const defaultMsg = "📞 便捷联络\n车牌号：" + carNo + "\n请及时沟通，感谢配合";
       const sendContent = content?.trim()
-        ? `🚗 挪车通知\n车牌号：${carNo}\n留言：${content}`
+        ? `📞 便捷联络\n车牌号：${carNo}\n留言：${content}`
         : defaultMsg;
 
       const res = await fetch(WEBHOOK, {
@@ -54,7 +51,6 @@ async function handleRequest(request, env) {
     }
   }
 
-  // 电话
   if (request.method === "POST" && url.pathname === "/api/call") {
     return Response.json({
       success: true,
@@ -71,10 +67,27 @@ function getHtml() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>挪车通知</title>
+<title>便捷联络</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Roboto,sans-serif}
+
+/* 顶部通知条 */
+#notification{
+  position:fixed;top:0;left:0;right:0;height:44px;
+  display:flex;align-items:center;justify:center;
+  color:#fff;font-size:15px;font-weight:500;
+  transform:translateY(-100%);transition:transform 0.3s ease;
+  z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+#notification.show{transform:translateY(0)}
+#notification.success{background:#20C997}
+#notification.error{background:#DC3545}
+#notification .progress{
+  position:absolute;bottom:0;left:0;height:3px;
+  background:rgba(255,255,255,0.6);width:0;
+}
+
 .container{max-width:380px;margin:50px auto}
 .card{background:#fff;border-radius:20px;box-shadow:0 8px 30px rgba(0,0,0,0.08);padding:32px 24px}
 .title{text-align:center;font-size:22px;font-weight:700;color:#222;margin-bottom:6px}
@@ -94,23 +107,27 @@ body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFon
 </style>
 </head>
 <body>
+
+<div id="notification">
+  <span id="notifyText"></span>
+  <div class="progress" id="notifyProgress"></div>
+</div>
+
 <div class="container">
   <div class="card">
-    <div class="title">临时挪车通知</div>
+    <div class="title">便捷联络</div>
     <div class="subtitle">扫码联系车主，保护隐私</div>
 
     <div class="form-item">
       <label>选择车牌号</label>
       <select id="carNo">
-        <!-- 这里改成你自己的车牌 -->
         <option value="闽A88888">闽A88888</option>
-        <!-- <option value="粤A99999">粤A99999</option> -->
       </select>
     </div>
 
     <div class="form-item">
-      <label>留言（可选，不填默认）</label>
-      <input type="text" id="content" placeholder="请尽快挪车，谢谢">
+      <label>留言（可选）</label>
+      <input type="text" id="content" placeholder="请及时沟通，谢谢">
     </div>
 
     <div class="form-item">
@@ -122,13 +139,34 @@ body{background:#f2f5fa;padding:20px;font-family:-apple-system,BlinkMacSystemFon
     </div>
 
     <button class="btn btn-call" onclick="call()">一键拨打车主电话</button>
-    <button class="btn btn-notify" onclick="sendNotify()">微信通知车主挪车</button>
-    <div class="tip">仅用于挪车，隐私保护</div>
+    <button class="btn btn-notify" onclick="sendNotify()">微信通知车主</button>
+    <div class="tip">仅用于联络，隐私保护</div>
   </div>
 </div>
 
 <script>
 let validateCode = "";
+
+// 顶部通知
+function showNotify(type, text) {
+  const el = document.getElementById('notification');
+  const textEl = document.getElementById('notifyText');
+  const prog = document.getElementById('notifyProgress');
+  
+  el.classList.remove('success','error');
+  el.classList.add(type);
+  textEl.textContent = text;
+  el.classList.add('show');
+  prog.style.width = '0';
+  prog.animate([{ width: '0%' }, { width: '100%' }], {
+    duration: 3000,
+    easing: 'linear'
+  });
+  setTimeout(() => {
+    el.classList.remove('show');
+  }, 3000);
+}
+
 function genCode() {
   const canvas = document.getElementById("codeCanvas");
   const ctx = canvas.getContext("2d");
@@ -144,8 +182,11 @@ function genCode() {
 async function call() {
   const res=await fetch('/api/call',{method:'POST'});
   const data=await res.json();
-  if(data.success&&data.phone) location.href='tel:'+data.phone;
-  else alert('获取号码失败');
+  if(data.success&&data.phone) {
+    location.href='tel:'+data.phone;
+  } else {
+    showNotify('error','获取号码失败');
+  }
 }
 
 async function sendNotify() {
@@ -153,20 +194,22 @@ async function sendNotify() {
   const content = document.getElementById('content').value.trim();
   const userCode = document.getElementById('codeInput').value.trim().toUpperCase();
 
-  if(!userCode){alert('请输入验证码');return;}
+  if(!userCode){
+    showNotify('error','请输入验证码');
+    return;
+  }
 
   const r=await fetch('/api/send',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      carNo,
-      userCode,
-      code:validateCode,
-      content
-    })
+    body:JSON.stringify({ carNo, userCode, code:validateCode, content })
   });
   const d=await r.json();
-  if(d.success) alert("✅ 发送成功！");
-  else alert("❌ 失败："+d.msg);
+  
+  if(d.success) {
+    showNotify('success','✅ 发送成功');
+  } else {
+    showNotify('error','❌ 失败：'+d.msg);
+  }
   genCode();
 }
 
